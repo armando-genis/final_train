@@ -225,8 +225,6 @@ void MoveBaseTrain::get_aruco_cordinate()
 
         arucos_pos_x = id_aruco_x_location + distance_x_front;
 
-        // RCLCPP_INFO(this->get_logger(), "\033[1;35m ----- > Distance of the aruco %i : , %f \033[0m", id_arucos, arucos_pos_x);
-
         // hanlging multiples arucos markers =======================================
 
         if(it != id_arucos_tmp.end())
