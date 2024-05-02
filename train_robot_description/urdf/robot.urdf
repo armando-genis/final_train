@@ -1,0 +1,85 @@
+<?xml version="1.0" ?>
+
+<robot name="dasautonomeauto" xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <!-- =============== Link & Joint =============== -->
+    <!-- Base Footprint -->
+
+    <!-- Robot mechanical and motor parameters -->
+    <xacro:property name="PI" value="3.1415926535897931"/>
+    <xacro:property name="wheel_width" value="0.175" />
+    <xacro:property name="clearance" value="${0.3/2.0}" />
+
+    <xacro:property name="base_width" value="0.31"/>
+    <xacro:property name="base_length" value="0.42"/>
+    <xacro:property name="base_height" value="0.18"/>
+
+    <xacro:property name="base_width_camara" value="0.1"/>
+    <xacro:property name="base_length_camara" value="0.1"/>
+    <xacro:property name="base_height_camara" value="0.1"/>
+    
+    <link name="base_link">
+        <visual>
+        <geometry>
+            <box size="${base_length} ${base_width} ${base_height}"/>
+        </geometry>
+        <material name="Cyan">
+            <color rgba="0.6 0.6 0.6 0.7"/>
+        </material>
+        </visual>
+    </link>
+
+    <!--  CAMARA LINK  -->
+    <link name="camera_link">
+        <visual>
+        <geometry>
+            <box size="${base_length_camara} ${base_width_camara} ${base_height_camara}"/>
+        </geometry>
+        <material name="Cyan">
+            <color rgba="0.6 0.6 0.6 0.7"/>
+        </material>
+        </visual>
+    </link>
+
+    <joint name="camera_link_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 -0.4"/>
+        <parent link="base_link"/>
+        <child link="camera_link"/>
+    </joint>
+
+    <link name="wagon_back">
+        <visual>
+        <geometry>
+            <box size="${base_length} ${base_width} ${base_height}"/>
+        </geometry>
+        <material name="Cyan">
+            <color rgba="0.6 0.6 0.6 0.7"/>
+        </material>
+        </visual>
+    </link>
+
+    <joint name="wagon_1_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="-0.6 0 0"/>
+        <parent link="base_link"/>
+        <child link="wagon_back"/>
+    </joint>
+
+    <link name="wagon_front">
+        <visual>
+        <geometry>
+            <box size="${base_length} ${base_width} ${base_height}"/>
+        </geometry>
+        <material name="Cyan">
+            <color rgba="0.6 0.6 0.6 0.7"/>
+        </material>
+        </visual>
+    </link>
+
+
+    <joint name="wagon_2_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0.6 0 0"/>
+        <parent link="base_link"/>
+        <child link="wagon_front"/>
+    </joint>
+
+
+</robot>
