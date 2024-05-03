@@ -3,8 +3,6 @@
 
 // Ros2
 #include "std_msgs/msg/int32.hpp"
-#include "std_msgs/msg/int16.hpp"
-
 #include "std_msgs/msg/float32.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -26,13 +24,12 @@
 #include <deque>
 #include <chrono>
 
+
 #include <Eigen/Dense>
 #include <iostream>
 #include <vector>
 #include <algorithm>
 #include <functional>
-
-#include "kf.cpp"
 
 
 enum class RobotState {
@@ -48,7 +45,6 @@ class MoveBaseTrain : public rclcpp::Node
 {
 private:
     /* data */
-    kf::KalmanFilter kalman_filter;
 
     // Robot variables for navigation
     RobotState state_ = RobotState::IDLE;
@@ -95,17 +91,13 @@ private:
     //variables for odom
     nav_msgs::msg::Odometry odom_msgs;
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-    // current shell
-    int current_shell = 0;
-    std_msgs::msg::Int32 current_shell_msg;
-    // robot move 
-    std_msgs::msg::Int16 robot_move_msg;
-    
+
     // funtions
     void get_aruco_cordinate();
     void get_station_cordinate_visualization();
     void get_odom_cordinate(const double x);
     void get_new_station_tar();
+    void kalman_filter();
     void master_control();
 
     // callback function 
@@ -122,8 +114,6 @@ private:
     rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr subscription_for_id_arucos;
     rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr subscription_for_distance;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_for_color_int;
-    rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr publisher_current_shell;
-    rclcpp::Publisher<std_msgs::msg::Int16>::SharedPtr publisher_motor;
 
     // visualization publishers
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_markers_stations;
@@ -136,7 +126,7 @@ public:
     ~MoveBaseTrain();
 };
 
-MoveBaseTrain::MoveBaseTrain(/* args */) : Node("move_base_train"), tf2_buffer(this->get_clock()), tf2_listener(tf2_buffer), kalman_filter(1, 1)
+MoveBaseTrain::MoveBaseTrain(/* args */) : Node("move_base_train"), tf2_buffer(this->get_clock()), tf2_listener(tf2_buffer)
 {
 
     this->declare_parameter("id_arucos", vector<int>() );
@@ -151,9 +141,6 @@ MoveBaseTrain::MoveBaseTrain(/* args */) : Node("move_base_train"), tf2_buffer(t
     // Publisher for odom
     publisher_odom = this->create_publisher<nav_msgs::msg::Odometry>("/odom", 10);
 
-    // publisher for current shell 
-    publisher_current_shell = this->create_publisher<std_msgs::msg::Int32>("/current_shell", 10);
-
     // Subscriber for /id_arucos
     subscription_for_id_arucos = this->create_subscription<std_msgs::msg::Int32>("/id_arucos", 10, bind(&MoveBaseTrain::callback_id_arucos, this, placeholders::_1));
 
@@ -162,9 +149,6 @@ MoveBaseTrain::MoveBaseTrain(/* args */) : Node("move_base_train"), tf2_buffer(t
 
     // Subscriber for /color_int
     subscription_for_color_int = this->create_subscription<std_msgs::msg::String>("/color_int", 10, bind(&MoveBaseTrain::callback_color_int, this, placeholders::_1));
-
-    // Publisher to motor 
-    publisher_motor = this->create_publisher<std_msgs::msg::Int16>("/robot_move", 10);
 
     // Timer
     timer_ = this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&MoveBaseTrain::timer_callback, this));
@@ -183,6 +167,10 @@ MoveBaseTrain::MoveBaseTrain(/* args */) : Node("move_base_train"), tf2_buffer(t
         marker_detection_history[id] = std::deque<bool>(history_length, false);
     }
 
+    
+    // distance_arucos.resize(number_of_arucos);
+
+
 }
 
 MoveBaseTrain::~MoveBaseTrain()
@@ -196,12 +184,18 @@ void MoveBaseTrain::get_aruco_cordinate()
     distance_arucos.clear();
     distance_arucos.resize(number_of_arucos);
 
+
     std::string toFrameRel = "base_link";
+    // std::string fromFrameRel = "aruco_marker";
     std::string fromFrameRel = "aruco_marker_" + std::to_string(id_arucos);
 
     try {
 
+        // transformStamped = tf_buffer_->lookupTransform(toFrameRel, fromFrameRel, this->get_clock()->now(), std::chrono::milliseconds(50)); 
+
         transform_aruco = tf2_buffer.lookupTransform(toFrameRel, fromFrameRel, this->get_clock()->now(), std::chrono::milliseconds(50)).transform;
+
+        // RCLCPP_INFO(get_logger(), "Transform is available.");
 
         distance_x_front = transform_aruco.translation.x;
         distance_y_front = transform_aruco.translation.y;
@@ -217,6 +211,7 @@ void MoveBaseTrain::get_aruco_cordinate()
         if (it != id_arucos_tmp.end())
         {
             id_aruco_x_location = id_arucos_x_tmp[it - id_arucos_tmp.begin()];
+            // RCLCPP_INFO(this->get_logger(), "Index of the aruco marker: %f", id_aruco_x_location);
             auto& history = marker_detection_history[id_arucos];
             history.push_back(true); 
             if (history.size() > history_length){
@@ -238,6 +233,18 @@ void MoveBaseTrain::get_aruco_cordinate()
             distance_arucos[it - id_arucos_tmp.begin()] = arucos_pos_x;
         }
 
+        // for (size_t i = 0; i <distance_arucos.size() ; i++)
+        // {
+        //     RCLCPP_INFO(this->get_logger(), "\033[1;35m ----- > Distance of the arucos %i : , %f \033[0m", i, distance_arucos[i]);
+        // }
+
+        // for (auto& [marker_id, history] : marker_detection_history) {
+        //     if (marker_id != id_arucos) {
+        //         history.push_back(false);
+        //         if (history.size() > history_length)
+        //             history.pop_front();
+        //     }
+        // }
 
     } catch (tf2::TransformException& ex) {
         // RCLCPP_ERROR(this->get_logger(), "Failed to get transform from %s to %s within the time limit: %s",
@@ -248,12 +255,23 @@ void MoveBaseTrain::get_aruco_cordinate()
 
     // print the marker_detection_history
     for (auto& [marker_id, history] : marker_detection_history) {
+        // std::string history_str;
+        // for (bool detected : history) {
+        //     history_str += detected ? "1" : "0";
+        // }
+        // RCLCPP_INFO(this->get_logger(), "Marker %d: %s", marker_id, history_str.c_str());
          if (all_of(history.begin(), history.end(), [](bool detected) { return detected; })) {
             last_processed_id = marker_id;
         }
     }
 
+    // if (last_processed_id != -1) {
+    //     // RCLCPP_INFO(this->get_logger(), "Last processed marker ID: %d", last_processed_id);
+    //     // get the aruco robot position
+    //     car_arucos_pos_x = distance_arucos[last_processed_id];
+    // }
     car_arucos_pos_x = distance_arucos[last_processed_id];
+
 }
 
 
@@ -321,6 +339,9 @@ void MoveBaseTrain::get_odom_cordinate(const double x)
     tf_broadcaster_->sendTransform(t);
 }
 
+void MoveBaseTrain::kalman_filter(){
+    RCLCPP_INFO(this->get_logger(), "\033[1;32m----> move_base_train initialized.\033[0m");
+}
 
 void MoveBaseTrain::get_new_station_tar()
 {
@@ -329,6 +350,7 @@ void MoveBaseTrain::get_new_station_tar()
 
 void MoveBaseTrain::callback_id_arucos(const std_msgs::msg::Int32::SharedPtr msg)
 {
+    //RCLCPP_INFO(this->get_logger(), "Received /id_arucos: '%d'", msg->data);
     id_arucos = msg->data;
 }
 
@@ -381,21 +403,14 @@ void MoveBaseTrain::master_control()
             if (abs(target_x - current_x) < position_tolerance_)
             {
                 RCLCPP_INFO(this->get_logger(), "\033[1;35m---->Reached target: %i \033[0m", current_target_index_);
-                current_shell = current_target_index_;
-                current_shell_msg.data = current_shell;
-                robot_move_msg.data = 0;
-
-                publisher_current_shell->publish(current_shell_msg);
 
                 state_ = RobotState::SCANING;
             }
             else
             {
                 RCLCPP_INFO(this->get_logger(), "\033[1;35m---->Moving to target: %i \033[0m", current_target_index_);
-                robot_move_msg.data = 45;
             }
 
-            publisher_motor->publish(robot_move_msg);
             break;
 
 
@@ -417,7 +432,6 @@ void MoveBaseTrain::master_control()
             if(current_x <  0.3){
                 RCLCPP_INFO(this->get_logger(), "\033[1;36m---->Arrived Home \033[0m");
                 current_target_index_ = 0;
-                current_shell = 0;
             }
 
             // condtiino to send negative to the services
