@@ -435,8 +435,9 @@ void MoveBaseTrain::master_control()
             publisher_current_shell->publish(current_shell_msg);
 
             publisher_motor->publish(robot_move_msg);
-            publisher_bool->publish(bool_msg);
             num_vueltas_to_station->publish(robot_position_msg);
+            publisher_bool->publish(bool_msg);
+            
             
             RCLCPP_INFO(this->get_logger(), "\033[1;35m- HALOO PERROS \033[0m");
 
