@@ -6,11 +6,11 @@ import glob # Used to get retrieve files that have a specified pattern
  
   
 # Chessboard dimensions
-number_of_squares_X = 9 # Number of chessboard squares along the x-axis
-number_of_squares_Y = 6  # Number of chessboard squares along the y-axis
+number_of_squares_X = 8 # Number of chessboard squares along the x-axis
+number_of_squares_Y = 5  # Number of chessboard squares along the y-axis
 nX = number_of_squares_X - 1 # Number of interior corners along x-axis
 nY = number_of_squares_Y - 1 # Number of interior corners along y-axis
-square_size = 0.023 # Size, in meters, of a square side 
+square_size = 0.026 # Size, in meters, of a square side 
   
 # Set termination criteria. We stop either when an accuracy is reached or when
 # we have finished a certain number of iterations.

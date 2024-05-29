@@ -1,6 +1,6 @@
 move_base_train_node:
   ros__parameters:
     id_arucos: [0, 1, 2, 3, 4, 5, 999]
-    id_arucos_x: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]
+    id_arucos_x: [0.43, 1.4, 2.6, 3.86, 5.12, 6.1, 7.0]
     number_of_arucos: 6
     
